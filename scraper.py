@@ -340,6 +340,7 @@ class ShopifyScraper:
                 "Variants Count": item["variant_count"],
                 "Images Count": item["images_count"],
                 "Main Image URL": item["main_image"],
+                "All Image URLs": ", ".join(item.get("all_images", [])),
                 "Product URL": item["url"],
                 "Created At": item["created_at"],
                 "Updated At": item["updated_at"]
