@@ -161,8 +161,14 @@ startScrapeBtn.addEventListener('click', async () => {
 
     try {
         startScrapeBtn.disabled = true;
-        showToast('Initiating scraper task...', 'info');
-        
+        // Reset progress UI immediately for fresh scrape run
+        progressBarFill.style.width = '0%';
+        progressPctText.textContent = '0%';
+        currentActionText.textContent = 'Starting fresh extraction task...';
+        progressCounterText.textContent = '0 / 0 Products';
+        terminalLogs.innerHTML = '';
+        totalProductsCount = 0;
+
         const res = await fetch('/api/start-scrape', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

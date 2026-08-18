@@ -200,10 +200,12 @@ class ShopifyScraper:
         self.is_running = True
         self.should_stop = False
         self.status = "scanning"
-        self.progress_percentage = 5
-        self.products_data = []
+        self.progress_percentage = 0
+        self.total_products = 0
         self.scraped_count = 0
         self.current_page = 1
+        self.products_data = []
+        self.logs = []
 
         self.add_log(f"Starting scraper for target: {self.target_url}")
         self.add_log(f"Domain: {domain} | Collection Slug: {collection_slug or 'All Store Products'}")
