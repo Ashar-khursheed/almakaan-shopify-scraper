@@ -161,36 +161,38 @@ def get_products(
         "products": paginated_items
     }
 
-import tempfile
-
-TEMP_DIR = tempfile.gettempdir()
-
 @app.get("/api/export/csv")
 def export_csv():
     df = scraper_instance.export_to_dataframe()
-    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.csv")
+    stream = StringIO()
+    df.to_csv(stream, index=False)
+    csv_bytes = stream.getvalue().encode('utf-8-sig')
     
-    with open(file_path, "w", encoding="utf-8-sig", newline="") as f:
-        df.to_csv(f, index=False)
-    
-    return FileResponse(
-        path=file_path,
-        filename="almakaan_kitchen_tools_scraped.csv",
-        media_type="text/csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="almakaan_kitchen_tools_scraped.csv"',
+            "Content-Type": "text/csv; charset=utf-8"
+        }
     )
 
 @app.get("/api/export/xlsx")
 def export_xlsx():
     df = scraper_instance.export_to_dataframe()
-    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.xlsx")
-    
-    with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Kitchen Tools Scraped')
     
-    return FileResponse(
-        path=file_path,
-        filename="almakaan_kitchen_tools_scraped.xlsx",
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    excel_bytes = output.getvalue()
+    
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="almakaan_kitchen_tools_scraped.xlsx"',
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        }
     )
 
 @app.get("/api/export/json")
@@ -198,14 +200,15 @@ def export_json():
     with scraper_instance._lock:
         data = list(scraper_instance.products_data)
     
-    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.json")
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    json_bytes = json.dumps(data, indent=2, ensure_ascii=False).encode('utf-8')
     
-    return FileResponse(
-        path=file_path,
-        filename="almakaan_kitchen_tools_scraped.json",
-        media_type="application/json"
+    return Response(
+        content=json_bytes,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": 'attachment; filename="almakaan_kitchen_tools_scraped.json"',
+            "Content-Type": "application/json"
+        }
     )
 
 if __name__ == "__main__":
