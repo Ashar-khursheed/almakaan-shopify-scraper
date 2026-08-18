@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Almakaan Kitchen Tools - Web Scraper & Live Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Top Header Navigation -->
+        <header class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-spider"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>Almakaan Scraper Studio</h1>
+                    <span class="sub-text">Kitchen Tools Data Extraction & Analytics Tool</span>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <div class="status-pill" id="globalStatusPill">
+                    <span class="status-dot"></span>
+                    <span id="globalStatusText">IDLE</span>
+                </div>
+                <div class="export-dropdown">
+                    <button class="btn btn-outline" id="exportBtn">
+                        <i class="fa-solid fa-download"></i> Export Data <i class="fa-solid fa-chevron-down ml-1"></i>
+                    </button>
+                    <div class="dropdown-menu" id="exportMenu">
+                        <a href="/api/export/csv" class="dropdown-item" download="almakaan_kitchen_tools_scraped.csv"><i class="fa-solid fa-file-csv text-emerald"></i> Export as CSV (.csv)</a>
+                        <a href="/api/export/xlsx" class="dropdown-item" download="almakaan_kitchen_tools_scraped.xlsx"><i class="fa-solid fa-file-excel text-green"></i> Export as Excel (.xlsx)</a>
+                        <a href="/api/export/json" class="dropdown-item" download="almakaan_kitchen_tools_scraped.json"><i class="fa-solid fa-code text-amber"></i> Export as Raw JSON (.json)</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Control & Monitor Container -->
+        <main class="main-content">
+            <!-- URL & Scraper Controls Card -->
+            <section class="card control-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-sliders text-indigo"></i> Target Configuration & Extraction Control
+                    </div>
+                </div>
+                <div class="control-form">
+                    <div class="input-group flex-grow">
+                        <label for="targetUrlInput"><i class="fa-solid fa-link"></i> Target Shopify Collection URL</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="targetUrlInput" class="form-input" value="https://almakaanstore.com/collections/kitchen-tools" placeholder="https://almakaanstore.com/collections/kitchen-tools">
+                            <button type="button" class="input-reset-btn" id="resetUrlBtn" title="Reset to default Kitchen Tools collection">
+                                <i class="fa-solid fa-rotate-left"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="button-group">
+                        <button id="startScrapeBtn" class="btn btn-primary btn-lg">
+                            <i class="fa-solid fa-play"></i> Start Scraper
+                        </button>
+                        <button id="stopScrapeBtn" class="btn btn-danger btn-lg" disabled>
+                            <i class="fa-solid fa-stop"></i> Stop
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Monitor Card -->
+            <section class="card progress-card" id="progressCard">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-chart-line text-cyan"></i> Live Scraping Progress & Activity Monitor
+                    </div>
+                    <div class="progress-pct-badge" id="progressPctText">0%</div>
+                </div>
+                <div class="progress-body">
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressBarFill" style="width: 0%;"></div>
+                    </div>
+                    <div class="progress-info-row">
+                        <span id="currentActionText" class="current-action"><i class="fa-solid fa-circle-notch fa-spin text-muted hidden" id="spinnerIcon"></i> Ready to initialize...</span>
+                        <span class="progress-counter" id="progressCounterText">0 / 0 Products</span>
+                    </div>
+
+                    <!-- Live Terminal Output Collapsible -->
+                    <div class="terminal-container">
+                        <div class="terminal-header">
+                            <span><i class="fa-solid fa-terminal"></i> Live Extraction Stream Console</span>
+                            <button class="terminal-toggle-btn" id="toggleTerminalBtn">
+                                <i class="fa-solid fa-chevron-up"></i>
+                            </button>
+                        </div>
+                        <div class="terminal-logs" id="terminalLogs">
+                            <div class="log-line info"><span class="log-time">[00:00:00]</span> Scraper Studio initialized. Waiting for execution...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Key Metrics Stats Dashboard Grid -->
+            <section class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-icon bg-indigo-subtle text-indigo">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Total Scraped</span>
+                        <h3 class="metric-value" id="statTotalScraped">0</h3>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon bg-emerald-subtle text-emerald">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">In Stock Items</span>
+                        <h3 class="metric-value" id="statInStock">0</h3>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon bg-rose-subtle text-rose">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Out of Stock</span>
+                        <h3 class="metric-value" id="statOutOfStock">0</h3>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon bg-amber-subtle text-amber">
+                        <i class="fa-solid fa-tag"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Avg. Price (AED)</span>
+                        <h3 class="metric-value" id="statAvgPrice">0.00</h3>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-icon bg-purple-subtle text-purple">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <div class="metric-info">
+                        <span class="metric-label">Unique Vendors</span>
+                        <h3 class="metric-value" id="statVendors">0</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Table Explorer Section -->
+            <section class="card table-card">
+                <div class="card-header border-bottom">
+                    <div class="card-title">
+                        <i class="fa-solid fa-table-list text-purple"></i> Scraped Products Catalog (<span id="tableTotalCount">0</span>)
+                    </div>
+                    <div class="table-actions">
+                        <button class="btn btn-sm btn-ghost" id="refreshTableBtn" title="Refresh Table">
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters & Search Toolbar -->
+                <div class="toolbar">
+                    <div class="search-input-wrapper">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search by product title, SKU, brand, or tag...">
+                        <button class="clear-search-btn hidden" id="clearSearchBtn"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="filter-group">
+                        <select id="vendorFilter" class="filter-select">
+                            <option value="">All Vendors / Brands</option>
+                        </select>
+                        <select id="stockFilter" class="filter-select">
+                            <option value="">All Stock Status</option>
+                            <option value="In Stock">In Stock Only</option>
+                            <option value="Out of Stock">Out of Stock Only</option>
+                        </select>
+                        <select id="sortBySelect" class="filter-select">
+                            <option value="id">Sort by: Default</option>
+                            <option value="title">Title (A-Z)</option>
+                            <option value="price_min">Price (Low to High)</option>
+                            <option value="discount_percentage">Discount (High to Low)</option>
+                            <option value="variant_count">Variants Count</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="table-responsive">
+                    <table class="data-table" id="productsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 70px;">Image</th>
+                                <th>Product Details</th>
+                                <th>Vendor / Brand</th>
+                                <th>SKU / Barcode</th>
+                                <th>Price (AED)</th>
+                                <th>Stock Status</th>
+                                <th>Variants</th>
+                                <th style="width: 100px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="8" class="empty-state">
+                                    <div class="empty-content">
+                                        <i class="fa-solid fa-box-open empty-icon"></i>
+                                        <p>No scraped products loaded yet.</p>
+                                        <span class="sub-text">Click "Start Scraper" above to extract products from Kitchen Tools collection.</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div class="table-pagination">
+                    <div class="pagination-info">
+                        Showing <span id="pageRangeText">0 - 0</span> of <span id="pageTotalText">0</span> items
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="page-btn" id="prevPageBtn" disabled><i class="fa-solid fa-chevron-left"></i> Previous</button>
+                        <span class="page-indicator" id="pageIndicator">Page 1 of 1</span>
+                        <button class="page-btn" id="nextPageBtn" disabled>Next <i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div class="modal-overlay hidden" id="productModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalProductTitle">Product Details</h2>
+                <button class="modal-close-btn" id="closeModalBtn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Modal content dynamically injected -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- JavaScript -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
