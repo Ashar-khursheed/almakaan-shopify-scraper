@@ -42,9 +42,10 @@ def read_root():
 
 @app.post("/api/start-scrape")
 def start_scrape(req: ScrapeRequest, background_tasks: BackgroundTasks):
-    if scraper_instance.is_running:
+    if scraper_instance.is_running and scraper_instance.status not in ["completed", "stopped", "error"]:
         return {"status": "error", "message": "Scraper is already running!"}
     
+    scraper_instance.is_running = False
     target_url = req.url.strip()
     if not target_url:
         target_url = "https://almakaanstore.com/collections/kitchen-tools"

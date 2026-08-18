@@ -130,7 +130,8 @@ function updateDashboardProgress(state) {
     }
 
     // Auto-refresh table when products count changes or completes
-    if (state.scraped_count > totalProductsCount || status === 'completed') {
+    if (state.scraped_count !== totalProductsCount || status === 'completed') {
+        totalProductsCount = state.scraped_count;
         fetchProductsData();
     }
 }

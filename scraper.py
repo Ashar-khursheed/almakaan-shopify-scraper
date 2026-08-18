@@ -199,7 +199,7 @@ class ShopifyScraper:
 
         self.is_running = True
         self.should_stop = False
-        self.status = "scanning"
+        self.status = "scraping"
         self.progress_percentage = 0
         self.total_products = 0
         self.scraped_count = 0
@@ -210,90 +210,68 @@ class ShopifyScraper:
         self.add_log(f"Starting scraper for target: {self.target_url}")
         self.add_log(f"Domain: {domain} | Collection Slug: {collection_slug or 'All Store Products'}")
 
-        page = 1
-        limit = 250
-        all_raw_products = []
+        try:
+            page = 1
+            limit = 250
+            processed_list = []
 
-        # Phase 1: Fetching pages and scanning product items
-        while not self.should_stop:
-            self.current_page = page
-            self.current_action = f"Fetching Page {page} (limit={limit})..."
-            
-            if collection_slug:
-                endpoint = f"{domain}/collections/{collection_slug}/products.json?limit={limit}&page={page}"
-            else:
-                endpoint = f"{domain}/products.json?limit={limit}&page={page}"
+            while not self.should_stop:
+                self.current_page = page
+                self.current_action = f"Fetching & processing Page {page}..."
+                
+                if collection_slug:
+                    endpoint = f"{domain}/collections/{collection_slug}/products.json?limit={limit}&page={page}"
+                else:
+                    endpoint = f"{domain}/products.json?limit={limit}&page={page}"
 
-            self.add_log(f"Requesting page {page}: {endpoint}")
-            data = self.fetch_json(endpoint)
+                self.add_log(f"Requesting page {page}: {endpoint}")
+                data = self.fetch_json(endpoint)
 
-            if not data or 'products' not in data:
-                self.add_log(f"No products found on page {page} or request failed.", "warning")
-                break
+                if not data or 'products' not in data:
+                    self.add_log(f"No products found on page {page} or request failed.", "warning")
+                    break
 
-            products_page = data['products']
-            count_page = len(products_page)
-            self.add_log(f"Page {page} fetched successfully: {count_page} products found.")
+                products_page = data['products']
+                count_page = len(products_page)
 
-            if count_page == 0:
-                break
+                if count_page == 0:
+                    break
 
-            all_raw_products.extend(products_page)
-            self.total_products = len(all_raw_products)
-            self.add_log(f"Total cumulative items discovered: {self.total_products}")
+                self.add_log(f"Page {page} fetched: {count_page} products found. Processing...")
 
-            if count_page < limit:
-                # Last page reached
-                break
+                for item in products_page:
+                    if self.should_stop:
+                        break
+                    parsed = self.process_product_item(item, domain)
+                    if parsed:
+                        processed_list.append(parsed)
 
-            page += 1
-            time.sleep(0.3)
+                with self._lock:
+                    self.products_data = list(processed_list)
+                    self.scraped_count = len(processed_list)
+                    self.total_products = len(processed_list)
+                    self.progress_percentage = 95 if count_page == limit else 100
 
-        if self.should_stop:
-            self.status = "stopped"
-            self.add_log("Scraping operation cancelled by user.", "warning")
-            self.is_running = False
-            return
+                self.add_log(f"Page {page} complete. Total items processed: {len(processed_list)}")
 
-        total_to_process = len(all_raw_products)
-        self.add_log(f"Scan completed. Total products to process: {total_to_process}")
+                if count_page < limit:
+                    break
 
-        if total_to_process == 0:
-            self.status = "completed"
-            self.progress_percentage = 100
-            self.current_action = "No products found."
-            self.is_running = False
-            return
+                page += 1
 
-        # Phase 2: Processing and parsing full product details
-        self.status = "scraping"
-        processed_list = []
-
-        for idx, item in enumerate(all_raw_products, 1):
             if self.should_stop:
                 self.status = "stopped"
-                self.add_log("Scraping process stopped by user during processing.", "warning")
-                break
-
-            parsed = self.process_product_item(item, domain)
-            if parsed:
-                processed_list.append(parsed)
-                with self._lock:
-                    self.products_data = processed_list
-                    self.scraped_count = len(processed_list)
-                    self.progress_percentage = min(99, int((self.scraped_count / total_to_process) * 100))
-
-            self.current_action = f"Processed {idx}/{total_to_process}: {item.get('title', '')[:40]}"
-            if idx % 25 == 0 or idx == total_to_process:
-                self.add_log(f"Progress update: {idx}/{total_to_process} products processed ({self.progress_percentage}%)")
-
-        if not self.should_stop:
-            self.status = "completed"
-            self.progress_percentage = 100
-            self.current_action = f"Scraping completed! Successfully scraped {len(processed_list)} products."
-            self.add_log(f"Scraping finished successfully! Total products stored: {len(processed_list)}", "success")
-
-        self.is_running = False
+                self.add_log("Scraping operation cancelled by user.", "warning")
+            else:
+                self.status = "completed"
+                self.progress_percentage = 100
+                self.current_action = f"Scraping completed! Successfully scraped {len(processed_list)} products."
+                self.add_log(f"Scraping finished successfully! Total products stored: {len(processed_list)}", "success")
+        except Exception as e:
+            self.status = "error"
+            self.add_log(f"Error during scraping execution: {str(e)}", "error")
+        finally:
+            self.is_running = False
 
     def stop(self):
         if self.is_running:
@@ -318,6 +296,13 @@ class ShopifyScraper:
         with self._lock:
             data = list(self.products_data)
 
+        # Fallback: if data is empty, trigger quick synchronous scrape
+        if not data and self.target_url:
+            self.add_log("No cached data for export. Running synchronous extraction...", "info")
+            self.run_scrape(self.target_url)
+            with self._lock:
+                data = list(self.products_data)
+
         # Regex to strip illegal Excel control characters (except tab \t, newline \n, return \r)
         illegal_char_re = re.compile(r'[\x00-\x08\x0b-\x0c\x0e-\x1f]')
 
@@ -329,23 +314,23 @@ class ShopifyScraper:
             row = {
                 "Product Title": title,
                 "Product Description": desc,
-                "Vendor / Brand": item["vendor"],
-                "Stock Status": item["stock_status"],
-                "Price Min (AED)": item["price_min"],
-                "Price Max (AED)": item["price_max"],
-                "Compare Price Max": item["compare_at_price_max"],
-                "Discount %": item["discount_percentage"],
-                "Primary SKU": item["primary_sku"],
-                "All SKUs": item["skus"],
-                "Barcodes": item["barcodes"],
-                "Tags": item["tags_str"],
-                "Variants Count": item["variant_count"],
-                "Images Count": item["images_count"],
-                "Main Image URL": item["main_image"],
+                "Vendor / Brand": item.get("vendor", ""),
+                "Stock Status": item.get("stock_status", ""),
+                "Price Min (AED)": item.get("price_min", 0.0),
+                "Price Max (AED)": item.get("price_max", 0.0),
+                "Compare Price Max": item.get("compare_at_price_max", 0.0),
+                "Discount %": item.get("discount_percentage", 0),
+                "Primary SKU": item.get("primary_sku", ""),
+                "All SKUs": item.get("skus", ""),
+                "Barcodes": item.get("barcodes", ""),
+                "Tags": item.get("tags_str", ""),
+                "Variants Count": item.get("variant_count", 0),
+                "Images Count": item.get("images_count", 0),
+                "Main Image URL": item.get("main_image", ""),
                 "All Image URLs": ", ".join(item.get("all_images", [])),
-                "Product URL": item["url"],
-                "Created At": item["created_at"],
-                "Updated At": item["updated_at"]
+                "Product URL": item.get("url", ""),
+                "Created At": item.get("created_at", ""),
+                "Updated At": item.get("updated_at", "")
             }
             flat_rows.append(row)
         return pd.DataFrame(flat_rows)
