@@ -161,14 +161,14 @@ def get_products(
         "products": paginated_items
     }
 
-EXPORT_DIR = os.path.join(STATIC_DIR, "exports")
-if not os.path.exists(EXPORT_DIR):
-    os.makedirs(EXPORT_DIR)
+import tempfile
+
+TEMP_DIR = tempfile.gettempdir()
 
 @app.get("/api/export/csv")
 def export_csv():
     df = scraper_instance.export_to_dataframe()
-    file_path = os.path.join(EXPORT_DIR, "almakaan_kitchen_tools_scraped.csv")
+    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.csv")
     
     with open(file_path, "w", encoding="utf-8-sig", newline="") as f:
         df.to_csv(f, index=False)
@@ -182,7 +182,7 @@ def export_csv():
 @app.get("/api/export/xlsx")
 def export_xlsx():
     df = scraper_instance.export_to_dataframe()
-    file_path = os.path.join(EXPORT_DIR, "almakaan_kitchen_tools_scraped.xlsx")
+    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.xlsx")
     
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Kitchen Tools Scraped')
@@ -198,7 +198,7 @@ def export_json():
     with scraper_instance._lock:
         data = list(scraper_instance.products_data)
     
-    file_path = os.path.join(EXPORT_DIR, "almakaan_kitchen_tools_scraped.json")
+    file_path = os.path.join(TEMP_DIR, "almakaan_kitchen_tools_scraped.json")
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     
