@@ -520,6 +520,31 @@ document.getElementById('toggleTerminalBtn').addEventListener('click', (e) => {
     }
 });
 
+// Robust Blob File Downloader for Chrome/Edge/Firefox
+async function triggerFileDownload(endpoint, defaultFilename) {
+    try {
+        showToast('Generating export file...', 'info');
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`Export request failed (${response.status})`);
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        showToast(`Export complete: ${defaultFilename}`, 'success');
+    } catch (err) {
+        showToast('Export failed: ' + err.message, 'error');
+    }
+}
+
 // Document Initialization
 document.addEventListener('DOMContentLoaded', () => {
     initSSE();
@@ -542,14 +567,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Export items toast trigger
+    // Export links intercepted for clean Blob downloads
     document.querySelectorAll('#exportMenu a').forEach(link => {
         link.addEventListener('click', (e) => {
-            const fileName = link.getAttribute('download') || 'exported_file';
-            showToast(`Downloading catalog: ${fileName}`, 'success');
+            e.preventDefault();
+            const url = link.getAttribute('href');
+            const fileName = link.getAttribute('download') || 'exported_data.xlsx';
+            
             if (exportDropdown) {
                 exportDropdown.classList.remove('active');
             }
+            
+            triggerFileDownload(url, fileName);
         });
     });
 });
