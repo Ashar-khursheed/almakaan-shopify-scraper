@@ -525,11 +525,31 @@ document.addEventListener('DOMContentLoaded', () => {
     initSSE();
     fetchProductsData();
 
+    // Export Dropdown Click & Hover Fix
+    const exportBtn = document.getElementById('exportBtn');
+    const exportDropdown = document.querySelector('.export-dropdown');
+
+    if (exportBtn && exportDropdown) {
+        exportBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDropdown.classList.toggle('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!exportDropdown.contains(e.target)) {
+                exportDropdown.classList.remove('active');
+            }
+        });
+    }
+
     // Export items toast trigger
     document.querySelectorAll('#exportMenu a').forEach(link => {
         link.addEventListener('click', (e) => {
             const fileName = link.getAttribute('download') || 'exported_file';
             showToast(`Downloading catalog: ${fileName}`, 'success');
+            if (exportDropdown) {
+                exportDropdown.classList.remove('active');
+            }
         });
     });
 });
